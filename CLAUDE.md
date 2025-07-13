@@ -88,6 +88,11 @@ mindgarden/
 
 ## Git Commit Guidelines
 
-- Always use concise one-line commit messages
+**EXTREMELY IMPORTANT - CRITICAL REQUIREMENT:**
+- **ALWAYS USE ONE-LINE COMMIT MESSAGES - NO MULTI-LINE COMMITS**
+- **NEVER USE MULTI-LINE COMMIT MESSAGES WITH DESCRIPTIONS OR BULLET POINTS**
+- **ONE LINE ONLY - NO EXCEPTIONS**
 - Do not mention Claude Code or AI assistance in commit messages
 - Focus on what changed, not who or what made the change
+- Example: `git commit -m "Add FastAPI server with status endpoint"`
+- NOT: `git commit -m "Add FastAPI server\n\n- Created main.py\n- Added status endpoint"`
