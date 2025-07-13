@@ -19,8 +19,12 @@ class MessageSearchTool:
         self.client = chromadb.PersistentClient(path=chroma_path)
         
         # Use OpenAI embeddings (can be configured later)
+        api_key = os.getenv("OPENAI_API_KEY")
+        if not api_key:
+            raise ValueError("OPENAI_API_KEY environment variable is required for embeddings")
+            
         openai_ef = embedding_functions.OpenAIEmbeddingFunction(
-            api_key=os.getenv("OPENAI_API_KEY"),
+            api_key=api_key,
             model_name="text-embedding-3-small"
         )
         
@@ -106,5 +110,12 @@ class MessageSearchTool:
         )
 
 
-# Global instance
-search_tool = MessageSearchTool()
+# Global instance - will be initialized when needed
+search_tool = None
+
+def get_search_tool():
+    """Get or create the search tool instance."""
+    global search_tool
+    if search_tool is None:
+        search_tool = MessageSearchTool()
+    return search_tool

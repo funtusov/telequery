@@ -9,7 +9,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 from src.database.connection import SessionLocal
 from src.models.schema import Message
 from src.models.database import TelegramMessage
-from src.tools.search import search_tool
+from src.tools.search import get_search_tool
 
 
 def create_sample_messages():
@@ -101,7 +101,7 @@ def populate_database():
                 reply_to_message_id=db_msg.reply_to_message_id
             )
             
-            search_tool.add_message_to_index(telegram_msg)
+            get_search_tool().add_message_to_index(telegram_msg)
     
     print("Sample data population complete!")
 

@@ -29,16 +29,27 @@ async def health_check():
 @app.post("/query", response_model=QueryResponse)
 async def query_messages(request: QueryRequest):
     """Process a user question and return an AI-generated answer."""
-    # Initialize the agent
-    agent = TelequeryAgent()
-    
-    # Create agent context from request
-    context = AgentContext(
-        user_question=request.user_question,
-        telegram_user_id=request.telegram_user_id,
-        telegram_chat_id=request.telegram_chat_id
-    )
-    
-    # Process the query using the agent
-    response = await agent.process_query(context)
-    return response
+    try:
+        # Initialize the agent
+        agent = TelequeryAgent()
+        
+        # Create agent context from request
+        context = AgentContext(
+            user_question=request.user_question,
+            telegram_user_id=request.telegram_user_id,
+            telegram_chat_id=request.telegram_chat_id
+        )
+        
+        # Process the query using the agent
+        response = await agent.process_query(context)
+        return response
+        
+    except Exception as e:
+        print(f"Query endpoint error: {e}")
+        import traceback
+        traceback.print_exc()
+        return QueryResponse(
+            answer_text=f"An error occurred: {str(e)}",
+            source_messages=[],
+            status="error"
+        )

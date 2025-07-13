@@ -13,4 +13,4 @@ class TelegramMessage(BaseModel):
     reply_to_message_id: Optional[str] = Field(None, description="ID of message being replied to")
     
     class Config:
-        orm_mode = True
+        from_attributes = True

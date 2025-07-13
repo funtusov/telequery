@@ -1,10 +1,10 @@
 from typing import List
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from ..models.agent import AgentContext, SearchToolInput, LLMPrompt
 from ..models.api import QueryResponse, SourceMessage
 from ..models.database import TelegramMessage
-from ..tools.search import search_tool
+from ..tools.search import get_search_tool
 from ..llm.factory import LLMFactory
 
 
@@ -14,9 +14,20 @@ class TelequeryAgent(BaseModel):
     llm_provider_name: str = "openai"
     max_context_messages: int = 5
     
+    # Private fields excluded from Pydantic model
+    class Config:
+        arbitrary_types_allowed = True
+    
     def __init__(self, **data):
         super().__init__(**data)
-        self.llm_provider = LLMFactory.create_provider(self.llm_provider_name)
+        # Store LLM provider as private attribute
+        object.__setattr__(self, '_llm_provider', None)
+    
+    def _get_llm_provider(self):
+        """Lazy initialization of LLM provider."""
+        if not hasattr(self, '_llm_provider') or self._llm_provider is None:
+            object.__setattr__(self, '_llm_provider', LLMFactory.create_provider(self.llm_provider_name))
+        return self._llm_provider
     
     async def process_query(self, context: AgentContext) -> QueryResponse:
         """Process a user query and return a response."""
@@ -28,7 +39,7 @@ class TelequeryAgent(BaseModel):
                 user_id=None  # Search across all users in the chat
             )
             
-            search_result = search_tool.search_relevant_messages(search_input)
+            search_result = get_search_tool().search_relevant_messages(search_input)
             
             if not search_result.messages:
                 return QueryResponse(
@@ -46,7 +57,7 @@ class TelequeryAgent(BaseModel):
             )
             
             # Step 3: Generate response using LLM
-            llm_response = await self.llm_provider.generate_response(
+            llm_response = await self._get_llm_provider().generate_response(
                 system_prompt=llm_prompt.system_prompt,
                 user_prompt=llm_prompt.user_prompt,
                 temperature=0.3  # Lower temperature for more factual responses

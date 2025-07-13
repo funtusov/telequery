@@ -27,20 +27,21 @@ This is the Telequery AI project - a Python-based intelligent query interface fo
 
 ## Development Commands
 
-Since this is a greenfield project, here are the initial setup commands you'll need:
+**IMPORTANT: This project uses `uv` as the preferred package manager for faster dependency management.**
 
 ```bash
-# Create Python virtual environment
+# Install dependencies using uv (PREFERRED)
+uv pip install -r requirements.txt
+
+# Alternative: Create Python virtual environment (if not using uv)
 python -m venv venv
 source venv/bin/activate  # On Windows: venv\Scripts\activate
-
-# Install dependencies (once requirements.txt is created)
 pip install -r requirements.txt
 
-# Run the FastAPI server (once implemented)
+# Run the FastAPI server
 uvicorn main:app --reload
 
-# Run tests (once test framework is set up)
+# Run tests
 pytest
 
 # Format code
@@ -48,6 +49,9 @@ black .
 
 # Lint code
 pylint src/
+
+# Initialize database and test
+python test_telequery.py
 ```
 
 ## Project Structure (Recommended)
