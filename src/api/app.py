@@ -2,6 +2,8 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from ..models.api import HealthCheckResponse, QueryRequest, QueryResponse
+from ..models.agent import AgentContext
+from ..agent.telequery_agent import TelequeryAgent
 
 app = FastAPI(
     title="Telequery AI",
@@ -27,9 +29,16 @@ async def health_check():
 @app.post("/query", response_model=QueryResponse)
 async def query_messages(request: QueryRequest):
     """Process a user question and return an AI-generated answer."""
-    # TODO: Implement the full agent flow
-    return QueryResponse(
-        answer_text="Query endpoint not yet implemented",
-        source_messages=[],
-        status="not_implemented"
+    # Initialize the agent
+    agent = TelequeryAgent()
+    
+    # Create agent context from request
+    context = AgentContext(
+        user_question=request.user_question,
+        telegram_user_id=request.telegram_user_id,
+        telegram_chat_id=request.telegram_chat_id
     )
+    
+    # Process the query using the agent
+    response = await agent.process_query(context)
+    return response
