@@ -2,23 +2,29 @@ import os
 from datetime import datetime
 from typing import List, Optional, Tuple
 from sqlalchemy.orm import Session
-from sqlalchemy import and_, or_
+from sqlalchemy import and_, or_, create_engine, text
+from sqlalchemy.orm import sessionmaker
 
 import chromadb
 from chromadb.utils import embedding_functions
 
 from ..models.agent import SearchToolInput, SearchToolOutput
 from ..models.database import TelegramMessage
-from ..models.schema import Message
-from ..database.connection import SessionLocal
 
 
 class MessageSearchTool:
-    def __init__(self, chroma_path: str = "./chroma_db"):
+    def __init__(self, chroma_path: str = "./chroma_db", database_url: str = "sqlite:///./telegram_messages.db"):
         self.chroma_path = chroma_path
+        self.database_url = database_url
+        
+        # Setup database connection
+        self.engine = create_engine(database_url)
+        self.SessionLocal = sessionmaker(bind=self.engine)
+        
+        # Setup ChromaDB
         self.client = chromadb.PersistentClient(path=chroma_path)
         
-        # Use OpenAI embeddings (can be configured later)
+        # Use OpenAI embeddings
         api_key = os.getenv("OPENAI_API_KEY")
         if not api_key:
             raise ValueError("OPENAI_API_KEY environment variable is required for embeddings")
@@ -51,56 +57,125 @@ class MessageSearchTool:
             ids=[message.message_id]
         )
     
+    def populate_search_index(self):
+        """Populate the search index with all messages from the database."""
+        print("🔍 Populating search index from database...")
+        
+        with self.SessionLocal() as session:
+            # Get all messages with chat info
+            query = text("""
+                SELECT m.telegram_id, m.text, m.sender_name, m.telegram_date, c.telegram_id as chat_telegram_id
+                FROM messages m
+                JOIN chats c ON m.chat_id = c.id
+                WHERE m.text IS NOT NULL AND m.text != ''
+            """)
+            
+            results = session.execute(query).fetchall()
+            
+            if not results:
+                print("⚠️  No messages found in database")
+                return
+            
+            # Clear existing collection
+            try:
+                self.client.delete_collection("telegram_messages")
+                openai_ef = embedding_functions.OpenAIEmbeddingFunction(
+                    api_key=os.getenv("OPENAI_API_KEY"),
+                    model_name="text-embedding-3-small"
+                )
+                self.collection = self.client.get_or_create_collection(
+                    name="telegram_messages",
+                    embedding_function=openai_ef
+                )
+            except:
+                pass
+            
+            # Add messages to search index
+            documents = []
+            metadatas = []
+            ids = []
+            
+            for row in results:
+                telegram_id, message_text, sender_name, telegram_date, chat_telegram_id = row
+                
+                # Create searchable text
+                searchable_text = f"{message_text}\nSender: {sender_name}\nTime: {telegram_date}"
+                
+                documents.append(searchable_text)
+                metadatas.append({
+                    "telegram_id": str(telegram_id),
+                    "chat_telegram_id": str(chat_telegram_id),
+                    "sender_name": sender_name or "Unknown",
+                    "telegram_date": str(telegram_date)
+                })
+                ids.append(f"msg_{telegram_id}")
+            
+            # Batch add to collection
+            if documents:
+                self.collection.add(
+                    documents=documents,
+                    metadatas=metadatas,
+                    ids=ids
+                )
+                print(f"✅ Added {len(documents)} messages to search index")
+    
     def search_relevant_messages(self, search_input: SearchToolInput) -> SearchToolOutput:
-        """Search for messages relevant to the query using semantic search."""
+        """Search for messages using semantic search."""
         # Build metadata filters
         where_clause = {}
         if search_input.chat_id:
-            where_clause["chat_id"] = search_input.chat_id
-        if search_input.user_id:
-            where_clause["user_id"] = search_input.user_id
+            where_clause["chat_telegram_id"] = search_input.chat_id
         
         # Perform semantic search
-        results = self.collection.query(
-            query_texts=[search_input.query_text],
-            n_results=10,  # Get top 10 most relevant messages
-            where=where_clause if where_clause else None
-        )
+        try:
+            results = self.collection.query(
+                query_texts=[search_input.query_text],
+                n_results=10,
+                where=where_clause if where_clause else None
+            )
+        except Exception as e:
+            print(f"Search error: {e}")
+            return SearchToolOutput(messages=[], total_found=0)
         
         if not results["ids"] or not results["ids"][0]:
             return SearchToolOutput(messages=[], total_found=0)
         
+        # Extract telegram_ids from the results
+        telegram_ids = []
+        for metadata in results["metadatas"][0]:
+            telegram_ids.append(int(metadata["telegram_id"]))
+        
         # Get full message details from database
-        message_ids = results["ids"][0]
-        
-        with SessionLocal() as db:
-            query = db.query(Message).filter(Message.message_id.in_(message_ids))
+        with self.SessionLocal() as session:
+            placeholders = ','.join(str(tid) for tid in telegram_ids)
+            query = text(f"""
+                SELECT m.telegram_id, m.text, m.sender_name, m.telegram_date, 
+                       c.telegram_id as chat_telegram_id, m.reply_to_message_id
+                FROM messages m
+                JOIN chats c ON m.chat_id = c.id
+                WHERE m.telegram_id IN ({placeholders})
+            """)
             
-            # Apply time range filter if provided
-            if search_input.time_range:
-                start_time, end_time = search_input.time_range
-                query = query.filter(
-                    and_(
-                        Message.timestamp >= start_time,
-                        Message.timestamp <= end_time
-                    )
-                )
-            
-            db_messages = query.all()
+            db_messages = session.execute(query).fetchall()
         
-        # Convert to Pydantic models and maintain search result order
+        # Convert to TelegramMessage objects and maintain search result order
         telegram_messages = []
-        for message_id in message_ids:
-            for db_msg in db_messages:
-                if db_msg.message_id == message_id:
+        for telegram_id in telegram_ids:
+            for row in db_messages:
+                if row[0] == telegram_id:  # telegram_id matches
+                    # Parse timestamp if it's a string
+                    timestamp = row[3]
+                    if isinstance(timestamp, str):
+                        timestamp = datetime.fromisoformat(timestamp.replace('Z', '+00:00'))
+                    
                     telegram_messages.append(TelegramMessage(
-                        message_id=db_msg.message_id,
-                        chat_id=db_msg.chat_id,
-                        user_id=db_msg.user_id,
-                        sender_name=db_msg.sender_name,
-                        text=db_msg.text,
-                        timestamp=db_msg.timestamp,
-                        reply_to_message_id=db_msg.reply_to_message_id
+                        message_id=str(row[0]),  # Convert telegram_id to string
+                        chat_id=str(row[4]),     # chat_telegram_id
+                        user_id="unknown",       # Not available in this schema
+                        sender_name=row[2] or "Unknown",
+                        text=row[1] or "",
+                        timestamp=timestamp,
+                        reply_to_message_id=str(row[5]) if row[5] else None
                     ))
                     break
         
@@ -113,9 +188,11 @@ class MessageSearchTool:
 # Global instance - will be initialized when needed
 search_tool = None
 
-def get_search_tool():
+def get_search_tool(database_url: str = "sqlite:///./telegram_messages.db", chroma_path: str = "./chroma_db"):
     """Get or create the search tool instance."""
     global search_tool
     if search_tool is None:
-        search_tool = MessageSearchTool()
+        search_tool = MessageSearchTool(chroma_path=chroma_path, database_url=database_url)
+        # Populate search index on first use
+        search_tool.populate_search_index()
     return search_tool

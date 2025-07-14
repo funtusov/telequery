@@ -38,8 +38,14 @@ python -m venv venv
 source venv/bin/activate  # On Windows: venv\Scripts\activate
 pip install -r requirements.txt
 
-# Run the FastAPI server
+# Start the server (RECOMMENDED - uses tmp/ database)
+./start_server.sh
+
+# Alternative: Run the FastAPI server manually
 uvicorn main:app --reload
+
+# Run full end-to-end test
+python run_test.py
 
 # Run tests
 pytest
@@ -49,9 +55,6 @@ black .
 
 # Lint code
 pylint src/
-
-# Initialize database and test
-python test_telequery.py
 ```
 
 ## Project Structure (Recommended)
@@ -89,6 +92,14 @@ mindgarden/
 - Integration tests for the full agent pipeline
 - API endpoint tests using FastAPI's test client
 - Mock LLM responses for predictable testing
+
+**IMPORTANT Testing Best Practice:**
+- **ALWAYS run tests incrementally after creating each test file**
+- **DO NOT create all test files at once without running them**
+- **Fix any issues immediately before proceeding to the next test**
+- This ensures tests actually work with the current implementation
+- Use `uv run pytest tests/ -v` to run all tests
+- Use `uv run pytest tests/test_specific.py -v` to run specific test file
 
 ## Git Commit Guidelines
 

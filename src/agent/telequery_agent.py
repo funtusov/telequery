@@ -13,6 +13,8 @@ class TelequeryAgent(BaseModel):
     
     llm_provider_name: str = "openai"
     max_context_messages: int = 5
+    database_url: str = "sqlite:///./telegram_messages.db"
+    chroma_path: str = "./chroma_db"
     
     # Private fields excluded from Pydantic model
     class Config:
@@ -39,7 +41,10 @@ class TelequeryAgent(BaseModel):
                 user_id=None  # Search across all users in the chat
             )
             
-            search_result = get_search_tool().search_relevant_messages(search_input)
+            search_result = get_search_tool(
+                database_url=self.database_url,
+                chroma_path=self.chroma_path
+            ).search_relevant_messages(search_input)
             
             if not search_result.messages:
                 return QueryResponse(
@@ -107,7 +112,7 @@ Be concise but informative in your responses."""
         
         # Format context messages
         context_text = "\n\n".join([
-            f"Message from {msg.sender_name} at {msg.timestamp.strftime('%Y-%m-%d %H:%M')}:\n{msg.text}"
+            f"Message from {msg.sender_name} at {msg.timestamp.strftime('%Y-%m-%d %H:%M')}:\n{msg.text or ''}"
             for msg in context_messages
         ])
         

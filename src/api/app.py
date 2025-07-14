@@ -4,6 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from ..models.api import HealthCheckResponse, QueryRequest, QueryResponse
 from ..models.agent import AgentContext
 from ..agent.telequery_agent import TelequeryAgent
+import os
 
 app = FastAPI(
     title="Telequery AI",
@@ -30,8 +31,15 @@ async def health_check():
 async def query_messages(request: QueryRequest):
     """Process a user question and return an AI-generated answer."""
     try:
-        # Initialize the agent
-        agent = TelequeryAgent()
+        # Get database configuration
+        database_url = os.getenv("DATABASE_URL", "sqlite:///./telegram_messages.db")
+        chroma_path = os.getenv("CHROMA_PATH", "./chroma_db")
+        
+        # Create agent with database configuration
+        agent = TelequeryAgent(
+            database_url=database_url,
+            chroma_path=chroma_path
+        )
         
         # Create agent context from request
         context = AgentContext(
