@@ -12,7 +12,7 @@ class TelequeryAgent(BaseModel):
     """Pydantic-based agent for processing Telegram message queries."""
     
     llm_provider_name: str = "openai"
-    max_context_messages: int = 5
+    max_context_messages: int = 100
     database_url: str = "sqlite:///./telegram_messages.db"
     chroma_path: str = "./chroma_db"
     

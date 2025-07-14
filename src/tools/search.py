@@ -130,7 +130,7 @@ class MessageSearchTool:
         try:
             results = self.collection.query(
                 query_texts=[search_input.query_text],
-                n_results=10,
+                n_results=100,
                 where=where_clause if where_clause else None
             )
         except Exception as e:
