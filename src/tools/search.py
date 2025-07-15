@@ -7,6 +7,9 @@ from sqlalchemy.orm import sessionmaker
 from dotenv import load_dotenv
 import logfire
 
+# Disable ChromaDB telemetry before any imports
+os.environ["ANONYMIZED_TELEMETRY"] = "False"
+
 import chromadb
 from chromadb.utils import embedding_functions
 
@@ -49,8 +52,9 @@ class MessageSearchTool:
         self.expansion_engine = create_engine(self.expansion_db_url)
         self.ExpansionSessionLocal = sessionmaker(bind=self.expansion_engine)
         
-        # Setup ChromaDB
-        self.client = chromadb.PersistentClient(path=self.chroma_path)
+        self.client = chromadb.PersistentClient(
+            path=self.chroma_path
+        )
         
         # Use OpenAI embeddings
         api_key = os.getenv("OPENAI_API_KEY")
@@ -158,7 +162,8 @@ class MessageSearchTool:
                     embedding_function=openai_ef,
                     metadata={"hnsw:space": "cosine"}
                 )
-            except:
+            except Exception as e:
+                print(f"Warning: Could not clear collection: {e}")
                 pass
             
             # Add messages to search index

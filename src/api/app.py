@@ -10,6 +10,7 @@ from ..models.agent import AgentContext
 from ..agent.telequery_agent import TelequeryAgent
 from ..services.expansion_service import startup_expansion_check
 from ..observability.logfire_config import configure_logfire
+from ..database.init_db import init_database
 import os
 
 # Configure logfire
@@ -55,6 +56,9 @@ signal.signal(signal.SIGTERM, handle_shutdown)
 @app.on_event("startup")
 async def startup_event():
     """Run startup tasks including expansion service check."""
+    # Initialize the database
+    init_database()
+
     # Check if expansion should be disabled
     if os.getenv("DISABLE_EXPANSION_ON_STARTUP", "false").lower() == "true":
         print("📌 Expansion on startup is disabled (DISABLE_EXPANSION_ON_STARTUP=true)")

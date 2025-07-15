@@ -219,6 +219,10 @@ async def startup_expansion_check():
     try:
         service = get_expansion_service()
         
+        # Log database paths
+        print(f"🔍 Main DB path: {service.database_url}")
+        print(f"🔍 Expansion DB path: {service.expansion_db_path}")
+        
         # Get current stats
         stats = await service.get_expansion_stats()
         print(f"📊 Expansion stats: {stats['expanded_messages']}/{stats['total_messages']} messages expanded ({stats['completion_percentage']:.1f}%)")
