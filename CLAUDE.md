@@ -29,6 +29,8 @@ This is the Telequery AI project - a Python-based intelligent query interface fo
 
 **IMPORTANT: This project uses `uv` as the preferred package manager for faster dependency management.**
 
+**CRITICAL: Always use `uv run python` instead of `python` directly to ensure the correct virtual environment is used.**
+
 ```bash
 # Install dependencies using uv (PREFERRED)
 uv pip install -r requirements.txt
@@ -64,6 +66,10 @@ uv run python run_expansion.py --batch-size 25
 
 # Show expansion statistics only
 uv run python run_expansion.py --stats
+
+# Check Python function signatures and documentation
+uv run python -c "import module_name; help(module_name.function_name)"
+# Example: uv run python -c "import logfire; help(logfire.configure)"
 ```
 
 ## Environment Variables
@@ -104,6 +110,14 @@ mindgarden/
 5. **Database Schema**: Ensure the SQLite schema supports efficient querying by chat_id, user_id, and timestamp ranges.
 
 6. **Message Expansion**: The system uses batch processing with JSON structured responses to efficiently expand messages with context. Batches of 50 messages are processed with 10-message overlaps for context continuity.
+
+7. **Python Commands**: Always use `uv run python` instead of `python` directly to ensure the correct virtual environment is used.
+
+8. **Function Signatures**: When implementing integrations with Python libraries, always check function signatures using Python's help() function:
+   ```bash
+   uv run python -c "import library_name; help(library_name.function_name)"
+   ```
+   This ensures correct parameter names and types are used.
 
 ## Testing Strategy
 

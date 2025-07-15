@@ -3,18 +3,26 @@ from fastapi.middleware.cors import CORSMiddleware
 import asyncio
 import signal
 import sys
+import logfire
 
 from ..models.api import HealthCheckResponse, QueryRequest, QueryResponse
 from ..models.agent import AgentContext
 from ..agent.telequery_agent import TelequeryAgent
 from ..services.expansion_service import startup_expansion_check
+from ..observability.logfire_config import configure_logfire
 import os
+
+# Configure logfire
+configure_logfire()
 
 app = FastAPI(
     title="Telequery AI",
     description="Intelligent query interface for Telegram message history",
     version="1.1"
 )
+
+# Instrument FastAPI with logfire
+logfire.instrument_fastapi(app)
 
 app.add_middleware(
     CORSMiddleware,
@@ -78,37 +86,51 @@ async def health_check():
 @app.post("/query", response_model=QueryResponse)
 async def query_messages(request: QueryRequest):
     """Process a user question and return an AI-generated answer."""
-    try:
-        # Get database configuration
-        database_url = os.getenv("DATABASE_URL", "sqlite:///./telegram_messages.db")
-        chroma_path = os.getenv("CHROMA_PATH", "./chroma_db")
-        expansion_db_path = os.getenv("EXPANSION_DB_PATH", "./data/telequery_expansions.db")
+    with logfire.span("api.query_endpoint") as span:
+        span.set_attribute("user_question", request.user_question)
+        span.set_attribute("chat_id", request.telegram_chat_id)
+        span.set_attribute("user_id", request.telegram_user_id)
+        span.set_attribute("debug", request.debug)
         
-        # Create agent with database configuration
-        agent = TelequeryAgent(
-            database_url=database_url,
-            chroma_path=chroma_path,
-            expansion_db_path=expansion_db_path
-        )
-        
-        # Create agent context from request
-        context = AgentContext(
-            user_question=request.user_question,
-            telegram_user_id=request.telegram_user_id,
-            telegram_chat_id=request.telegram_chat_id,
-            debug=request.debug
-        )
-        
-        # Process the query using the agent
-        response = await agent.process_query(context)
-        return response
-        
-    except Exception as e:
-        print(f"Query endpoint error: {e}")
-        import traceback
-        traceback.print_exc()
-        return QueryResponse(
-            answer_text=f"An error occurred: {str(e)}",
-            source_messages=[],
-            status="error"
-        )
+        try:
+            # Get database configuration
+            database_url = os.getenv("DATABASE_URL", "sqlite:///./telegram_messages.db")
+            chroma_path = os.getenv("CHROMA_PATH", "./chroma_db")
+            expansion_db_path = os.getenv("EXPANSION_DB_PATH", "./data/telequery_expansions.db")
+            
+            # Create agent with database configuration
+            agent = TelequeryAgent(
+                database_url=database_url,
+                chroma_path=chroma_path,
+                expansion_db_path=expansion_db_path
+            )
+            
+            # Create agent context from request
+            context = AgentContext(
+                user_question=request.user_question,
+                telegram_user_id=request.telegram_user_id,
+                telegram_chat_id=request.telegram_chat_id,
+                debug=request.debug
+            )
+            
+            # Process the query using the agent
+            response = await agent.process_query(context)
+            
+            # Log response metadata
+            span.set_attribute("response_status", response.status)
+            span.set_attribute("source_message_count", len(response.source_messages))
+            
+            return response
+            
+        except Exception as e:
+            span.set_attribute("error", str(e))
+            span.set_attribute("error_type", type(e).__name__)
+            
+            print(f"Query endpoint error: {e}")
+            import traceback
+            traceback.print_exc()
+            return QueryResponse(
+                answer_text=f"An error occurred: {str(e)}",
+                source_messages=[],
+                status="error"
+            )

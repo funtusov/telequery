@@ -1,11 +1,13 @@
 from typing import List
 from pydantic import BaseModel, Field
+import logfire
 
 from ..models.agent import AgentContext, SearchToolInput, LLMPrompt
 from ..models.api import QueryResponse, SourceMessage
 from ..models.database import TelegramMessage
 from ..tools.search import get_search_tool
 from ..llm.factory import LLMFactory
+from ..observability.logfire_config import log_agent_operation
 
 
 class TelequeryAgent(BaseModel):
@@ -32,22 +34,27 @@ class TelequeryAgent(BaseModel):
             object.__setattr__(self, '_llm_provider', LLMFactory.create_provider(self.llm_provider_name))
         return self._llm_provider
     
+    @log_agent_operation("process_query")
     async def process_query(self, context: AgentContext) -> QueryResponse:
         """Process a user query and return a response."""
         try:
             # Step 1: Search for relevant messages
-            search_input = SearchToolInput(
-                query_text=context.user_question,
-                chat_id=context.telegram_chat_id,
-                user_id=None,  # Search across all users in the chat
-                debug=context.debug
-            )
-            
-            search_result = await get_search_tool(
-                database_url=self.database_url,
-                chroma_path=self.chroma_path,
-                expansion_db_url=f"sqlite:///{self.expansion_db_path}"
-            ).search_relevant_messages(search_input)
+            with logfire.span("agent.search_phase") as search_span:
+                search_input = SearchToolInput(
+                    query_text=context.user_question,
+                    chat_id=context.telegram_chat_id,
+                    user_id=None,  # Search across all users in the chat
+                    debug=context.debug
+                )
+                search_span.set_attribute("search_input", search_input.model_dump())
+                
+                search_result = await get_search_tool(
+                    database_url=self.database_url,
+                    chroma_path=self.chroma_path,
+                    expansion_db_url=f"sqlite:///{self.expansion_db_path}"
+                ).search_relevant_messages(search_input)
+                
+                search_span.set_attribute("messages_found", len(search_result.messages))
             
             if not search_result.messages:
                 return QueryResponse(
@@ -57,19 +64,25 @@ class TelequeryAgent(BaseModel):
                 )
             
             # Step 2: Prepare context for LLM
-            context_messages = search_result.messages[:self.max_context_messages]
-            
-            llm_prompt = self._create_llm_prompt(
-                context.user_question,
-                context_messages
-            )
+            with logfire.span("agent.prepare_context") as context_span:
+                context_messages = search_result.messages[:self.max_context_messages]
+                context_span.set_attribute("context_message_count", len(context_messages))
+                
+                llm_prompt = self._create_llm_prompt(
+                    context.user_question,
+                    context_messages
+                )
             
             # Step 3: Generate response using LLM
-            llm_response = await self._get_llm_provider().generate_response(
-                system_prompt=llm_prompt.system_prompt,
-                user_prompt=llm_prompt.user_prompt,
-                temperature=0.3  # Lower temperature for more factual responses
-            )
+            with logfire.span("agent.llm_generation") as llm_span:
+                llm_span.set_attribute("llm_provider", self.llm_provider_name)
+                llm_span.set_attribute("temperature", 0.3)
+                
+                llm_response = await self._get_llm_provider().generate_response(
+                    system_prompt=llm_prompt.system_prompt,
+                    user_prompt=llm_prompt.user_prompt,
+                    temperature=0.3  # Lower temperature for more factual responses
+                )
             
             # Step 4: Convert messages to API format
             if context.debug and search_result.messages_with_scores:

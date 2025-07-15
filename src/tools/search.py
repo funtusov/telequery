@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import and_, or_, create_engine, text
 from sqlalchemy.orm import sessionmaker
 from dotenv import load_dotenv
+import logfire
 
 import chromadb
 from chromadb.utils import embedding_functions
@@ -14,6 +15,7 @@ from ..models.database import TelegramMessage
 from ..models.schema import Message as SourceMessage
 from ..database.expansion_schema import MessageExpansion
 from ..llm.factory import LLMFactory
+from ..observability.logfire_config import log_tool_operation
 
 # Load environment variables
 load_dotenv()
@@ -219,6 +221,7 @@ Return only the rewritten query, nothing else."""
             print(f"⚠️ Query rewriting failed: {e}, using original query")
             return original_query
     
+    @log_tool_operation("search_relevant_messages")
     async def search_relevant_messages(self, search_input: SearchToolInput) -> SearchToolOutput:
         """Search for messages using semantic search."""
         # Rewrite query for better semantic search
