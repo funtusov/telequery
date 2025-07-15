@@ -39,8 +39,9 @@ The system consists of:
    ```
 
 2. **Set up environment variables**
+   Create a `.env` file in the project root:
    ```bash
-   export OPENAI_API_KEY=your-openai-api-key-here
+   OPENAI_API_KEY=your-openai-api-key-here
    ```
 
 3. **Start the application**
@@ -100,14 +101,19 @@ CREATE INDEX idx_timestamp ON messages(timestamp);
 ### Docker (Recommended)
 
 ```bash
-# Start with Docker
+# Start with Docker (rebuilds image and starts container)
 ./start_docker.sh
 
-# Or with explicit environment variables
-docker run -e OPENAI_API_KEY=your_key -p 8000:8000 -v $(pwd)/../telequery_db:/app/telequery_db telequery-ai
+# Query the API using the client script
+./query.sh "Who is responsible for electricity at the camp?"
+
+# Or with explicit parameters
+./query.sh -u john_doe -c general_chat "What did we discuss about the project?"
 ```
 
-### Local Development
+### Local Development (Alternative)
+
+For local development without Docker:
 
 ```bash
 # Install dependencies with uv (recommended)
@@ -116,10 +122,7 @@ uv pip install -r requirements.txt
 # Or with pip
 pip install -r requirements.txt
 
-# Start the server
-./start_server.sh
-
-# Or manually
+# Start the server manually
 uv run uvicorn main:app --reload --host 0.0.0.0 --port 8000
 ```
 
