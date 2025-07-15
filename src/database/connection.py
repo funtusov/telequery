@@ -5,7 +5,7 @@ from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 
 from ..models.schema import Base
 
-DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./telegram_messages.db")
+DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///../telequery_db/telegram_messages.db")
 ASYNC_DATABASE_URL = DATABASE_URL.replace("sqlite://", "sqlite+aiosqlite://")
 
 # Synchronous engine for initial setup

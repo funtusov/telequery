@@ -37,29 +37,29 @@ fi
 
 echo "✅ OpenAI API key found: ${OPENAI_API_KEY:0:8}..."
 
-# Set database URL to use tmp directory
-export DATABASE_URL="sqlite:///./tmp/telegram_messages.db"
-export CHROMA_DB_PATH="./tmp/chroma_db"
-export EXPANSION_DB_PATH="./tmp/telequery_expansions.db"
+# Set database URL to use external telequery_db directory
+export DATABASE_URL="sqlite:///../telequery_db/telegram_messages.db"
+export CHROMA_DB_PATH="../telequery_db/chroma_db"
+export EXPANSION_DB_PATH="../telequery_db/telequery_expansions.db"
 
 echo "📊 Database: $DATABASE_URL"
 echo "🔍 ChromaDB: $CHROMA_DB_PATH"
 echo "📈 Expansion DB: $EXPANSION_DB_PATH"
 
-# Check if database exists in tmp/
-if [ ! -f "tmp/telegram_messages.db" ]; then
-    echo "❌ Database not found in tmp/telegram_messages.db"
+# Check if database exists in ../telequery_db/
+if [ ! -f "../telequery_db/telegram_messages.db" ]; then
+    echo "❌ Database not found in ../telequery_db/telegram_messages.db"
     echo "Please run the test script first to create sample data:"
     echo "python run_test.py"
     exit 1
 fi
 
-echo "✅ Database found in tmp/"
+echo "✅ Database found in ../telequery_db/"
 
 # Check if ChromaDB data exists
-if [ ! -d "tmp/chroma_db" ]; then
-    echo "⚠️  ChromaDB not found in tmp/. Server will create it on first query."
-    mkdir -p tmp/chroma_db
+if [ ! -d "../telequery_db/chroma_db" ]; then
+    echo "⚠️  ChromaDB not found in ../telequery_db/. Server will create it on first query."
+    mkdir -p ../telequery_db/chroma_db
 fi
 
 # Start the FastAPI server

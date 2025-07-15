@@ -22,21 +22,35 @@ load_dotenv()
 
 
 class MessageSearchTool:
-    def __init__(self, chroma_path: str = "./chroma_db", database_url: str = "sqlite:///./telegram_messages.db", expansion_db_url: str = "sqlite:///./data/telequery_expansions.db"):
-        self.chroma_path = chroma_path
-        self.database_url = database_url
-        self.expansion_db_url = expansion_db_url
+    def __init__(self, chroma_path: str = None, database_url: str = None, expansion_db_url: str = None):
+        # Set defaults using environment variables
+        self.chroma_path = chroma_path or os.getenv("CHROMA_DB_PATH", "../telequery_db/chroma_db")
+        
+        # Handle database URL with support for MAIN_DB_PATH
+        if database_url:
+            self.database_url = database_url
+        else:
+            main_db_path = os.getenv("MAIN_DB_PATH")
+            if main_db_path:
+                self.database_url = f"sqlite:///{main_db_path}"
+            else:
+                self.database_url = os.getenv("DATABASE_URL", "sqlite:///../telequery_db/telegram_messages.db")
+        
+        self.expansion_db_url = expansion_db_url or os.getenv("EXPANSION_DB_PATH", "../telequery_db/telequery_expansions.db")
+        # Convert expansion path to full SQLite URL if needed
+        if not self.expansion_db_url.startswith("sqlite:///"):
+            self.expansion_db_url = f"sqlite:///{self.expansion_db_url}"
         
         # Setup database connection
-        self.engine = create_engine(database_url)
+        self.engine = create_engine(self.database_url)
         self.SessionLocal = sessionmaker(bind=self.engine)
         
         # Setup expansion database connection
-        self.expansion_engine = create_engine(expansion_db_url)
+        self.expansion_engine = create_engine(self.expansion_db_url)
         self.ExpansionSessionLocal = sessionmaker(bind=self.expansion_engine)
         
         # Setup ChromaDB
-        self.client = chromadb.PersistentClient(path=chroma_path)
+        self.client = chromadb.PersistentClient(path=self.chroma_path)
         
         # Use OpenAI embeddings
         api_key = os.getenv("OPENAI_API_KEY")
@@ -369,7 +383,7 @@ Return only the rewritten query, nothing else."""
 # Global instance - will be initialized when needed
 search_tool = None
 
-def get_search_tool(database_url: str = "sqlite:///./telegram_messages.db", chroma_path: str = "./chroma_db", expansion_db_url: str = "sqlite:///./data/telequery_expansions.db"):
+def get_search_tool(database_url: str = None, chroma_path: str = None, expansion_db_url: str = None):
     """Get or create the search tool instance."""
     global search_tool
     if search_tool is None:

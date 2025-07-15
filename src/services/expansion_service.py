@@ -192,8 +192,14 @@ def get_expansion_service() -> ExpansionService:
     global _expansion_service
     
     if _expansion_service is None:
-        database_url = os.getenv("DATABASE_URL", "sqlite:///./telegram_messages.db")
-        expansion_db_path = os.getenv("EXPANSION_DB_PATH", "./data/telequery_expansions.db")
+        # Handle database URL with support for MAIN_DB_PATH
+        main_db_path = os.getenv("MAIN_DB_PATH")
+        if main_db_path:
+            database_url = f"sqlite:///{main_db_path}"
+        else:
+            database_url = os.getenv("DATABASE_URL", "sqlite:///../telequery_db/telegram_messages.db")
+        
+        expansion_db_path = os.getenv("EXPANSION_DB_PATH", "../telequery_db/telequery_expansions.db")
         
         _expansion_service = ExpansionService(
             database_url=database_url,

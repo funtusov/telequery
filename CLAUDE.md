@@ -32,7 +32,10 @@ This is the Telequery AI project - a Python-based intelligent query interface fo
 **CRITICAL: Always use `uv run python` instead of `python` directly to ensure the correct virtual environment is used.**
 
 ```bash
-# Install dependencies using uv (PREFERRED)
+# RECOMMENDED: Start with Docker (uses external ../telequery_db)
+./start_docker.sh
+
+# Alternative: Install dependencies using uv for local development
 uv pip install -r requirements.txt
 
 # Alternative: Create Python virtual environment (if not using uv)
@@ -40,7 +43,7 @@ python -m venv venv
 source venv/bin/activate  # On Windows: venv\Scripts\activate
 pip install -r requirements.txt
 
-# Start the server (RECOMMENDED - uses tmp/ database)
+# Alternative: Start the server locally (uses ../telequery_db)
 ./start_server.sh
 
 # Alternative: Run the FastAPI server manually
@@ -72,12 +75,27 @@ uv run python -c "import module_name; help(module_name.function_name)"
 # Example: uv run python -c "import logfire; help(logfire.configure)"
 ```
 
+## Database Location
+
+**IMPORTANT**: All database files are stored in `../telequery_db/` (outside the project directory) to:
+- Keep databases persistent across deployments
+- Allow easy Docker volume mounting
+- Separate code from data
+
+The directory structure is:
+```
+../telequery_db/
+├── telegram_messages.db      # Main Telegram messages database
+├── telequery_expansions.db   # Message expansion database
+└── chroma_db/                # Vector embeddings database
+```
+
 ## Environment Variables
 
 - `OPENAI_API_KEY`: Required. Your OpenAI API key for LLM operations
-- `DATABASE_URL`: SQLite database URL (default: `sqlite:///./telegram_messages.db`)
-- `CHROMA_DB_PATH`: ChromaDB vector database path (default: `./chroma_db`)
-- `EXPANSION_DB_PATH`: Expansion database path (default: `./data/telequery_expansions.db`)
+- `DATABASE_URL`: SQLite database URL (default: `sqlite:///../telequery_db/telegram_messages.db`)
+- `CHROMA_DB_PATH`: ChromaDB vector database path (default: `../telequery_db/chroma_db`)
+- `EXPANSION_DB_PATH`: Expansion database path (default: `../telequery_db/telequery_expansions.db`)
 - `DISABLE_EXPANSION_ON_STARTUP`: Set to `true` to disable automatic message expansion when server starts (default: `false`)
 
 ## Project Structure (Recommended)

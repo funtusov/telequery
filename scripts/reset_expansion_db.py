@@ -13,7 +13,7 @@ def reset_expansion_database():
     
     # Get the path to the expansion database from environment variables
     # Default to the same path used in the expansion_service
-    expansion_db_path = os.getenv("EXPANSION_DB_PATH", "./data/telequery_expansions.db")
+    expansion_db_path = os.getenv("EXPANSION_DB_PATH", "../telequery_db/telequery_expansions.db")
     
     # Get the absolute path
     db_abs_path = os.path.abspath(expansion_db_path)

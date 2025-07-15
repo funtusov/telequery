@@ -94,9 +94,14 @@ async def query_messages(request: QueryRequest):
         
         try:
             # Get database configuration
-            database_url = os.getenv("DATABASE_URL", "sqlite:///./telegram_messages.db")
-            chroma_path = os.getenv("CHROMA_PATH", "./chroma_db")
-            expansion_db_path = os.getenv("EXPANSION_DB_PATH", "./data/telequery_expansions.db")
+            database_url = os.getenv("DATABASE_URL", "sqlite:///../telequery_db/telegram_messages.db")
+            chroma_path = os.getenv("CHROMA_DB_PATH", "../telequery_db/chroma_db")
+            expansion_db_path = os.getenv("EXPANSION_DB_PATH", "../telequery_db/telequery_expansions.db")
+            
+            # Use main database path if provided (for Docker compatibility)
+            main_db_path = os.getenv("MAIN_DB_PATH")
+            if main_db_path:
+                database_url = f"sqlite:///{main_db_path}"
             
             # Create agent with database configuration
             agent = TelequeryAgent(
