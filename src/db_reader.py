@@ -133,7 +133,14 @@ class TelegramDBReader:
 
 def format_message(msg: Dict) -> str:
     """Format a message for display."""
-    date = msg.get('telegram_date', 'Unknown date')
+    date_str = msg.get('telegram_date', 'Unknown date')
+    try:
+        # Attempt to parse the date string into a datetime object
+        date_obj = datetime.fromisoformat(date_str.replace('Z', '+00:00'))
+        date = date_obj.strftime('%Y-%m-%d %H:%M')
+    except (ValueError, TypeError):
+        date = date_str  # Fallback to original string if parsing fails
+    
     sender = msg.get('sender_name', 'Unknown sender')
     chat = msg.get('chat_name', 'Unknown chat')
     text = msg.get('text', '')

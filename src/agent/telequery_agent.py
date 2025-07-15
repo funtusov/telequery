@@ -15,6 +15,7 @@ class TelequeryAgent(BaseModel):
     max_context_messages: int = 100
     database_url: str = "sqlite:///./telegram_messages.db"
     chroma_path: str = "./chroma_db"
+    expansion_db_path: str = "./data/telequery_expansions.db"
     
     # Private fields excluded from Pydantic model
     class Config:
@@ -38,12 +39,14 @@ class TelequeryAgent(BaseModel):
             search_input = SearchToolInput(
                 query_text=context.user_question,
                 chat_id=context.telegram_chat_id,
-                user_id=None  # Search across all users in the chat
+                user_id=None,  # Search across all users in the chat
+                debug=context.debug
             )
             
-            search_result = get_search_tool(
+            search_result = await get_search_tool(
                 database_url=self.database_url,
-                chroma_path=self.chroma_path
+                chroma_path=self.chroma_path,
+                expansion_db_url=f"sqlite:///{self.expansion_db_path}"
             ).search_relevant_messages(search_input)
             
             if not search_result.messages:
@@ -69,20 +72,36 @@ class TelequeryAgent(BaseModel):
             )
             
             # Step 4: Convert messages to API format
-            source_messages = [
-                SourceMessage(
-                    message_id=msg.message_id,
-                    sender=msg.sender_name,
-                    timestamp=msg.timestamp,
-                    text=msg.text
-                )
-                for msg in context_messages
-            ]
+            if context.debug and search_result.messages_with_scores:
+                # In debug mode, include expanded text and scores
+                source_messages = [
+                    SourceMessage(
+                        message_id=msg_with_score.message.message_id,
+                        sender=msg_with_score.message.sender_name,
+                        timestamp=msg_with_score.message.timestamp,
+                        text=msg_with_score.message.text,
+                        expanded_text=msg_with_score.expanded_text,
+                        relevance_score=msg_with_score.relevance_score
+                    )
+                    for msg_with_score in search_result.messages_with_scores[:self.max_context_messages]
+                ]
+            else:
+                # Normal mode
+                source_messages = [
+                    SourceMessage(
+                        message_id=msg.message_id,
+                        sender=msg.sender_name,
+                        timestamp=msg.timestamp,
+                        text=msg.text
+                    )
+                    for msg in context_messages
+                ]
             
             return QueryResponse(
                 answer_text=llm_response.content,
                 source_messages=source_messages,
-                status="success"
+                status="success",
+                rewritten_query=search_result.rewritten_query if context.debug else None
             )
             
         except Exception as e:

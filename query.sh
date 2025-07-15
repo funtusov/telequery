@@ -7,6 +7,7 @@
 SERVER_URL="${TELEQUERY_SERVER_URL:-http://localhost:8000}"
 USER_ID="${TELEGRAM_USER_ID:-default_user}"
 CHAT_ID="${TELEGRAM_CHAT_ID:-}"
+DEBUG_MODE=false
 
 # Colors for output
 GREEN='\033[0;32m'
@@ -22,6 +23,7 @@ usage() {
     echo "  -u, --user-id USER_ID    Telegram user ID (default: $USER_ID)"
     echo "  -c, --chat-id CHAT_ID    Telegram chat ID (optional)"
     echo "  -s, --server URL         Server URL (default: $SERVER_URL)"
+    echo "  -d, --debug              Enable debug mode (show expanded messages and scores)"
     echo "  -h, --help               Show this help message"
     echo ""
     echo "Examples:"
@@ -49,6 +51,10 @@ while [[ $# -gt 0 ]]; do
         -s|--server)
             SERVER_URL="$2"
             shift 2
+            ;;
+        -d|--debug)
+            DEBUG_MODE=true
+            shift
             ;;
         -h|--help)
             usage
@@ -86,6 +92,9 @@ echo -e "User: ${USER_ID}"
 if [ -n "$CHAT_ID" ]; then
     echo -e "Chat: ${CHAT_ID}"
 fi
+if [ "$DEBUG_MODE" = true ]; then
+    echo -e "Mode: DEBUG"
+fi
 echo -e "Query: \"${QUERY}\""
 echo ""
 
@@ -95,7 +104,8 @@ if [ -n "$CHAT_ID" ]; then
 {
     "user_question": "${QUERY}",
     "telegram_user_id": "${USER_ID}",
-    "telegram_chat_id": "${CHAT_ID}"
+    "telegram_chat_id": "${CHAT_ID}",
+    "debug": ${DEBUG_MODE}
 }
 EOF
 )
@@ -103,7 +113,8 @@ else
     JSON_PAYLOAD=$(cat <<EOF
 {
     "user_question": "${QUERY}",
-    "telegram_user_id": "${USER_ID}"
+    "telegram_user_id": "${USER_ID}",
+    "debug": ${DEBUG_MODE}
 }
 EOF
 )
@@ -132,6 +143,15 @@ fi
 STATUS=$(echo "$RESPONSE" | jq -r '.status // "error"')
 
 if [ "$STATUS" = "success" ]; then
+    # Show rewritten query in debug mode
+    if [ "$DEBUG_MODE" = true ]; then
+        REWRITTEN_QUERY=$(echo "$RESPONSE" | jq -r '.rewritten_query // empty')
+        if [ -n "$REWRITTEN_QUERY" ]; then
+            echo -e "${YELLOW}🔄 Rewritten Query: ${REWRITTEN_QUERY}${NC}"
+            echo ""
+        fi
+    fi
+    
     echo -e "${GREEN}Answer:${NC}"
     echo "$RESPONSE" | jq -r '.answer_text'
     
@@ -140,10 +160,27 @@ if [ "$STATUS" = "success" ]; then
     if [ "$SOURCE_COUNT" -gt 0 ]; then
         echo ""
         echo -e "${YELLOW}Based on ${SOURCE_COUNT} source message(s):${NC}"
-        echo "$RESPONSE" | jq -r '.source_messages[] | "- [\(.timestamp)] \(.sender): \(.text)"' | head -10
         
-        if [ "$SOURCE_COUNT" -gt 10 ]; then
-            echo "... and $((SOURCE_COUNT - 10)) more messages"
+        if [ "$DEBUG_MODE" = true ]; then
+            # Debug mode: show all messages with expanded text and scores
+            echo "$RESPONSE" | jq -r '.source_messages[] | 
+                "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n" +
+                "📊 Relevance Score: \(.relevance_score // "N/A")\n" +
+                "👤 Sender: \(.sender)\n" +
+                "🕐 Time: \(.timestamp)\n" +
+                "📝 Original: \(.text)\n" +
+                if .expanded_text then
+                    "🔍 Expanded:\n\(.expanded_text)\n"
+                else
+                    ""
+                end'
+        else
+            # Normal mode: show truncated list
+            echo "$RESPONSE" | jq -r '.source_messages[] | "- [\(.timestamp)] \(.sender): \(.text)"' | head -10
+            
+            if [ "$SOURCE_COUNT" -gt 10 ]; then
+                echo "... and $((SOURCE_COUNT - 10)) more messages"
+            fi
         fi
     fi
 else

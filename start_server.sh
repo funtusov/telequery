@@ -9,15 +9,13 @@ set -e  # Exit on any error
 echo "🚀 Starting Telequery AI Server"
 echo "================================"
 
-# Check if virtual environment exists
-if [ ! -d ".venv" ]; then
-    echo "❌ Virtual environment not found. Please run 'uv venv' first."
+# Check if uv is available
+if ! command -v uv &> /dev/null; then
+    echo "❌ uv not found. Please install uv first."
     exit 1
 fi
 
-# Activate virtual environment
-echo "📦 Activating virtual environment..."
-source .venv/bin/activate
+echo "📦 Using uv for dependency management..."
 
 # Load environment variables from .env file if it exists
 if [ -f ".env" ]; then
@@ -42,9 +40,11 @@ echo "✅ OpenAI API key found: ${OPENAI_API_KEY:0:8}..."
 # Set database URL to use tmp directory
 export DATABASE_URL="sqlite:///./tmp/telegram_messages.db"
 export CHROMA_DB_PATH="./tmp/chroma_db"
+export EXPANSION_DB_PATH="./tmp/telequery_expansions.db"
 
 echo "📊 Database: $DATABASE_URL"
 echo "🔍 ChromaDB: $CHROMA_DB_PATH"
+echo "📈 Expansion DB: $EXPANSION_DB_PATH"
 
 # Check if database exists in tmp/
 if [ ! -f "tmp/telegram_messages.db" ]; then
@@ -71,5 +71,5 @@ echo ""
 echo "Press Ctrl+C to stop the server"
 echo "================================"
 
-# Start the server with uvicorn
-uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+# Start the server with uv run python -m uvicorn
+uv run python -m uvicorn main:app --host 0.0.0.0 --port 8000 --reload

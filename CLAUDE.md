@@ -42,20 +42,37 @@ pip install -r requirements.txt
 ./start_server.sh
 
 # Alternative: Run the FastAPI server manually
-uvicorn main:app --reload
+uv run uvicorn main:app --reload
 
 # Run full end-to-end test
-python run_test.py
+uv run python run_test.py
 
 # Run tests
-pytest
+uv run pytest
 
 # Format code
-black .
+uv run black .
 
 # Lint code
-pylint src/
+uv run pylint src/
+
+# Run message expansion script (standalone)
+uv run python run_expansion.py
+
+# Run message expansion with custom batch size (default: 50)
+uv run python run_expansion.py --batch-size 25
+
+# Show expansion statistics only
+uv run python run_expansion.py --stats
 ```
+
+## Environment Variables
+
+- `OPENAI_API_KEY`: Required. Your OpenAI API key for LLM operations
+- `DATABASE_URL`: SQLite database URL (default: `sqlite:///./telegram_messages.db`)
+- `CHROMA_DB_PATH`: ChromaDB vector database path (default: `./chroma_db`)
+- `EXPANSION_DB_PATH`: Expansion database path (default: `./data/telequery_expansions.db`)
+- `DISABLE_EXPANSION_ON_STARTUP`: Set to `true` to disable automatic message expansion when server starts (default: `false`)
 
 ## Project Structure (Recommended)
 
@@ -85,6 +102,8 @@ mindgarden/
 4. **Error Handling**: The agent should clearly state when it cannot find an answer rather than hallucinating responses.
 
 5. **Database Schema**: Ensure the SQLite schema supports efficient querying by chat_id, user_id, and timestamp ranges.
+
+6. **Message Expansion**: The system uses batch processing with JSON structured responses to efficiently expand messages with context. Batches of 50 messages are processed with 10-message overlaps for context continuity.
 
 ## Testing Strategy
 
