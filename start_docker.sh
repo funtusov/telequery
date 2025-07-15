@@ -21,6 +21,33 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
+# Log database file paths
+echo "Database configuration:"
+echo "  Main database: $MAIN_DB_HOST_PATH"
+echo "  Expansion database: $EXPANSION_DB_HOST_PATH"
+echo "  Vector database directory: $VECTOR_HOST_PATH/chroma_db"
+
+# Check if database files exist
+if [ -f "$MAIN_DB_HOST_PATH" ]; then
+    echo "  ✓ Main database file exists"
+else
+    echo "  ⚠ Main database file not found (will be created on first run)"
+fi
+
+if [ -f "$EXPANSION_DB_HOST_PATH" ]; then
+    echo "  ✓ Expansion database file exists"
+else
+    echo "  ⚠ Expansion database file not found (will be created on first run)"
+fi
+
+if [ -d "$VECTOR_HOST_PATH/chroma_db" ]; then
+    echo "  ✓ Vector database directory exists"
+else
+    echo "  ⚠ Vector database directory not found (will be created on first run)"
+fi
+
+echo ""
+
 # Always rebuild the image to ensure changes are applied
 echo "Building Docker image..."
 docker build -t $IMAGE_NAME .
