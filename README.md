@@ -13,6 +13,7 @@ Telequery AI enables users to ask natural language questions about their Telegra
 - **Source Citations**: Every answer includes references to the original messages
 - **RESTful API**: Easy integration with Telegram bots or other applications
 - **Flexible LLM Support**: Works with OpenAI, Anthropic, Google, or local models
+- **Docker Ready**: Containerized for easy deployment and development
 
 ## Architecture
 
@@ -25,40 +26,53 @@ The system consists of:
 
 ## Prerequisites
 
-- Python 3.10 or higher
+- Docker and Docker Compose
 - SQLite database populated with Telegram messages (see Database Setup section)
-- API key for your chosen LLM provider
+- API key for your chosen LLM provider (OpenAI recommended)
 
-## Installation
+## Quick Start with Docker
 
-```bash
-# Clone the repository
-git clone https://github.com/yourusername/telequery-ai.git
-cd telequery-ai
+1. **Clone the repository**
+   ```bash
+   git clone https://github.com/yourusername/telequery-ai.git
+   cd telequery-ai
+   ```
 
-# Create virtual environment
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
+2. **Set up environment variables**
+   ```bash
+   export OPENAI_API_KEY=your-openai-api-key-here
+   ```
 
-# Install dependencies
-pip install -r requirements.txt
-```
+3. **Start the application**
+   ```bash
+   ./start_docker.sh
+   ```
+
+The application will be available at `http://localhost:8000`
 
 ## Configuration
 
-Create a `.env` file in the project root:
+### Environment Variables
 
-```env
-# LLM Configuration
-LLM_PROVIDER=openai  # Options: openai, anthropic, google, local
-LLM_API_KEY=your-api-key-here
-LLM_MODEL=gpt-4  # Or your preferred model
+- `OPENAI_API_KEY`: **Required**. Your OpenAI API key for LLM operations
+- `DATABASE_URL`: SQLite database URL (default: `sqlite:///../telequery_db/telegram_messages.db`)
+- `CHROMA_DB_PATH`: ChromaDB vector database path (default: `../telequery_db/chroma_db`)
+- `EXPANSION_DB_PATH`: Expansion database path (default: `../telequery_db/telequery_expansions.db`)
+- `DISABLE_EXPANSION_ON_STARTUP`: Set to `true` to disable automatic message expansion when server starts (default: `false`)
 
-# Database
-DATABASE_PATH=./data/telegram_messages.db
+### Database Location
 
-# Vector Search
-VECTOR_INDEX_PATH=./data/message_embeddings.index
+All database files are stored in `../telequery_db/` (outside the project directory) to:
+- Keep databases persistent across deployments
+- Allow easy Docker volume mounting
+- Separate code from data
+
+Directory structure:
+```
+../telequery_db/
+├── telegram_messages.db      # Main Telegram messages database
+├── telequery_expansions.db   # Message expansion database
+└── chroma_db/                # Vector embeddings database
 ```
 
 ## Database Setup
@@ -83,10 +97,30 @@ CREATE INDEX idx_timestamp ON messages(timestamp);
 
 ## Usage
 
-### Starting the API Server
+### Docker (Recommended)
 
 ```bash
-uvicorn main:app --reload --host 0.0.0.0 --port 8000
+# Start with Docker
+./start_docker.sh
+
+# Or with explicit environment variables
+docker run -e OPENAI_API_KEY=your_key -p 8000:8000 -v $(pwd)/../telequery_db:/app/telequery_db telequery-ai
+```
+
+### Local Development
+
+```bash
+# Install dependencies with uv (recommended)
+uv pip install -r requirements.txt
+
+# Or with pip
+pip install -r requirements.txt
+
+# Start the server
+./start_server.sh
+
+# Or manually
+uv run uvicorn main:app --reload --host 0.0.0.0 --port 8000
 ```
 
 ### API Endpoints
@@ -138,17 +172,45 @@ Response:
 
 ### Running Tests
 ```bash
+# With uv (recommended)
+uv run pytest tests/
+
+# Or with pip
 pytest tests/
 ```
 
 ### Code Formatting
 ```bash
+# With uv (recommended)
+uv run black .
+
+# Or with pip
 black .
 ```
 
 ### Linting
 ```bash
+# With uv (recommended)
+uv run pylint src/
+
+# Or with pip
 pylint src/
+```
+
+### Additional Commands
+
+```bash
+# Run full end-to-end test
+uv run python run_test.py
+
+# Run message expansion script
+uv run python run_expansion.py
+
+# Run message expansion with custom batch size
+uv run python run_expansion.py --batch-size 25
+
+# Show expansion statistics only
+uv run python run_expansion.py --stats
 ```
 
 ## Project Structure
